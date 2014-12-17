@@ -36,7 +36,6 @@ struct EnemyInfo      Enemy[MAX_ENEMY];
 #define P_SHOT         0
 #define E_SHOT         1
 
-#define SHOT_SIZE		1
 char PlayerShot = '|';
 char EnemyShot = '*';
 
@@ -49,20 +48,18 @@ struct ShotInfo{
 #define MAX_SHOT      20
 struct ShotInfo         Shot[MAX_SHOT];
 
-
-
 // 함수
 void InitialObject();
 void DrawPlayer();
 void DrawEnemy();
-void DrawShot();
 void Draw();
 void EnemyAction();
 void PlayerAction();
-void ShotAction();
 void CreateShot(int Type, int x, int y);
-void CheckCrash();
-
+void DrawShot();
+void ShotAction();
+void CheckCrush();
+int CheckClear();
 
 void main()
 {
@@ -74,11 +71,65 @@ void main()
 		EnemyAction();
 		PlayerAction();
 		ShotAction();
-		CheckCrash();
 
 		Draw();
 
+		CheckCrush();
+
+		if( CheckClear() ) break;
+
 		Sleep(100);
+	}
+}
+
+int CheckClear()
+{
+	if( Player.LiveFlag == 0 ){
+		MoveCursor( 36, 12 );
+		printf("게임 오버!!");
+		Sleep(1000);
+
+		return 1;
+	}
+
+	int i;
+	for(i=0; i < MAX_ENEMY; i++){
+		if( Enemy[i].LiveFlag ) return 0;
+	}
+
+	MoveCursor(35, 12);
+	printf("적은 모두 격추!");
+	Sleep(1000);
+
+	return 1;
+}
+
+void CheckCrush()
+{
+	int i, j;
+	for(i=0; i < MAX_SHOT; i++){
+		if( Shot[i].UseFlag ){
+			if( Shot[i].Type == P_SHOT ){
+				for( j=0; j < MAX_ENEMY; j++){
+					if( Enemy[j].LiveFlag ){
+						if( Shot[i].x >= Enemy[j].x - ENEMY_SIZE / 2 &&
+							Shot[i].x <= Enemy[j].x + ENEMY_SIZE / 2 &&
+							Shot[i].y == Enemy[j].y ){
+								Shot[i].UseFlag = 0;
+								Enemy[j].LiveFlag = 0;
+								break;
+						}
+					}
+				}
+			} else if( Shot[i].Type == E_SHOT ) {
+				if( Shot[i].x >= Player.x - PLAYER_SIZE / 2 &&
+					Shot[i].x <= Player.x + PLAYER_SIZE / 2 &&
+					Shot[i].y == Player.y ){
+						Shot[i].UseFlag = 0;
+						Player.LiveFlag = 0;
+				}
+			}
+		}
 	}
 }
 
@@ -136,23 +187,6 @@ void EnemyAction()
 	}
 }
 
-void ShotAction()
-{
-	int i;
-	for(i=0;i < MAX_SHOT;i++){
-		if(Shot[i].UseFlag){
-
-			if(Shot[i].Type == E_SHOT){
-				if(Shot[i].y >= HEIGHT) Shot[i].UseFlag = 0;
-				else Shot[i].y++;
-			}else{
-				if(Shot[i].y <= 0) Shot[i].UseFlag = 0;
-				else Shot[i].y--;
-			}
-		}
-	}
-}
-
 void InitialObject()
 {
 	int i, x, y;
@@ -195,25 +229,29 @@ void Draw()
 	}
 }
 
+void ShotAction()
+{
+	int i;
+	for(i=0;i < MAX_SHOT;i++){
+		if( Shot[i].UseFlag ){
+			if( Shot[i].Type == P_SHOT ){
+				Shot[i].y--;
+				if( Shot[i].y < 0 ) Shot[i].UseFlag = 0;
+			} else if( Shot[i].Type == E_SHOT ){
+				Shot[i].y++;
+				if( Shot[i].y >= HEIGHT ) Shot[i].UseFlag = 0;
+			}
+		}
+	}
+}
+
 void DrawShot()
 {
-	int x, y, i, j;
-	for(i=0; i < MAX_SHOT; i++){
-
-		x = Shot[i].x - SHOT_SIZE / 2;
-		y = Shot[i].y;
-
-		if(y < 0 || y >= HEIGHT) continue;
-
-		for(j=0; j < SHOT_SIZE ;j++){
-			if(x >=0 && x < WIDTH){
-				if(Shot[i].Type == P_SHOT){
-					Screen[y][x] = PlayerShot;
-				}else{
-					Screen[y][x] = EnemyShot;
-			 }
-		 }
-			x++;
+	int i;
+	for(i=0;i < MAX_SHOT;i++){
+		if( Shot[i].UseFlag ){
+			if( Shot[i].Type == P_SHOT ) Screen[ Shot[i].y ][ Shot[i].x ] = PlayerShot;
+			else if( Shot[i].Type == E_SHOT ) Screen[ Shot[i].y ][ Shot[i].x ] = EnemyShot;
 		}
 	}
 }
@@ -238,7 +276,6 @@ void DrawEnemy()
 
 void DrawPlayer()
 {
-	//if(Player.LiveFlag == 1){
 	int i;
 	int x = Player.x - PLAYER_SIZE / 2;
 	int y = Player.y;
@@ -249,44 +286,13 @@ void DrawPlayer()
 		if(x >= 0 && x < WIDTH ) Screen[y][x] = PlayerUnit[i];
 		x++;
 	}
-	//}
 }
 
-// CheckCrash
-void CheckCrash(){
-	int i, j, k, l;
-	// Check between EnemyShot & Player
-	for(i=0; i < MAX_SHOT; i++){
-		if(Shot[i].UseFlag){
-			if(Shot[i].Type == E_SHOT && Shot[i].y == Player.y && abs(Shot[i].x -Player.x) <= PLAYER_SIZE / 2){
-				Player.LiveFlag = 0;
-				Shot[i].UseFlag = 0;
-
-				MoveCursor(0, 24);
-				printf("End of Game");
-				// Printf Game over
-			}
-		}
-	}
-	// Check between PlayerShot & Enemy
-	for(j=0; j < MAX_SHOT; j++){
-		for(k=0; k < MAX_ENEMY; k++){
-			if(Shot[j].UseFlag && Enemy[k].LiveFlag){
-				if(Shot[j].Type == P_SHOT && Shot[j].y == Enemy[k].y && abs(Shot[j].x - Enemy[k].x) <= ENEMY_SIZE / 2){
-					Enemy[k].LiveFlag = 0;
-					Shot[j].UseFlag = 0;
-					break;
-				}
-			}
-		}
-	}
-	// Check between Player & Enemy
-	for(l=0; l < MAX_ENEMY; l++){
-		if(Enemy[l].x == Player.x && Enemy[l].y == Player.y){
-			Player.LiveFlag = 0;
-
-			MoveCursor(0, 24);
-			printf("End of Game");
-		}
-	}
-}
+/*
+TODO
+1. HP
+2. SCORE
+3. Next Stage
+4. Item (적어도 3개 이상)
+5. Boss
+*/
