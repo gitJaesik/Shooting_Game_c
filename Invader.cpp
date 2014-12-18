@@ -5,6 +5,7 @@
 #include "Console.h"
 
 char Screen[HEIGHT][WIDTH];
+char HpScoreLifeItem[WIDTH];
 
 #define TRUE					1
 
@@ -13,30 +14,28 @@ char Screen[HEIGHT][WIDTH];
 #define PLAYER_SIZE          5
 char PlayerUnit[PLAYER_SIZE+1] = "-#^#-";
 
-struct PlayerInfo{
+struct ObjectInfo{
 	int x, y;
 	int LiveFlag;
+	int HP;
 };
 
 //링크드리스트로 플레이어 목숨 갯수 구현하기.
 typedef struct PlayerInfoLinkedList{
-	struct PlayerInfo PI;
+	struct ObjectInfo PI;
 	struct PlayerInfoLinkedList *pNext;
 } PlayerLL;
 
 PlayerLL *pHead = NULL;
-PlayerLL *currentPlayer = NULL;
 int PlayerCount;
 
-struct PlayerInfo      Player;
 
 // 적 비행기 관련 
 #define ENEMY_SIZE         3
 char EnemyUnit[ENEMY_SIZE+1] = "@-@";
 
 struct EnemyInfo{
-	int x, y;   
-	int LiveFlag;
+	ObjectInfo EI;
 	int MoveFlag;
 	int StartX;
 };
@@ -78,7 +77,8 @@ int CheckClear();
 void AddPlayerLife();
 void DrawPlayerLife();
 void ClearHeap();
-
+void NewStart();
+void DrawPlayerHP();
 
 void main()
 {
@@ -105,17 +105,23 @@ void main()
 
 int CheckClear()
 {
-	if( Player.LiveFlag == 0 ){
-		MoveCursor( 36, 12 );
-		printf("게임 오버!!");
-		Sleep(1000);
-
-		return 1;
+	if( pHead->PI.LiveFlag == 0){
+		if( pHead->pNext == NULL){
+			MoveCursor( 36, 12 );
+			printf("게임 오버!!");
+			Sleep(1000);
+			return 1;
+		} else {
+			PlayerLL *pTemp = pHead;
+			pHead = pHead->pNext;
+			free(pTemp);
+			NewStart();
+		}
 	}
 
 	int i;
 	for(i=0; i < MAX_ENEMY; i++){
-		if( Enemy[i].LiveFlag ) return 0;
+		if( Enemy[i].EI.LiveFlag ) return 0;
 	}
 
 	MoveCursor(35, 12);
@@ -123,31 +129,37 @@ int CheckClear()
 	Sleep(1000);
 
 	return 1;
+	
 }
 
 void CheckCrush()
 {
+
 	int i, j;
 	for(i=0; i < MAX_SHOT; i++){
 		if( Shot[i].UseFlag ){
 			if( Shot[i].Type == P_SHOT ){
 				for( j=0; j < MAX_ENEMY; j++){
-					if( Enemy[j].LiveFlag ){
-						if( Shot[i].x >= Enemy[j].x - ENEMY_SIZE / 2 &&
-							Shot[i].x <= Enemy[j].x + ENEMY_SIZE / 2 &&
-							Shot[i].y == Enemy[j].y ){
+					if( Enemy[j].EI.LiveFlag ){
+						if( Shot[i].x >= Enemy[j].EI.x - ENEMY_SIZE / 2 &&
+							Shot[i].x <= Enemy[j].EI.x + ENEMY_SIZE / 2 &&
+							Shot[i].y == Enemy[j].EI.y ){
 								Shot[i].UseFlag = 0;
-								Enemy[j].LiveFlag = 0;
+								Enemy[j].EI.LiveFlag = 0;
 								break;
 						}
 					}
 				}
 			} else if( Shot[i].Type == E_SHOT ) {
-				if( Shot[i].x >= Player.x - PLAYER_SIZE / 2 &&
-					Shot[i].x <= Player.x + PLAYER_SIZE / 2 &&
-					Shot[i].y == Player.y ){
+				if( Shot[i].x >= pHead->PI.x - PLAYER_SIZE / 2 &&
+					Shot[i].x <= pHead->PI.x + PLAYER_SIZE / 2 &&
+					Shot[i].y == pHead->PI.y ){
 						Shot[i].UseFlag = 0;
-						Player.LiveFlag = 0;
+						pHead->PI.HP--;
+						if(pHead->PI.HP == 0){
+							pHead->PI.LiveFlag = 0;
+						}
+
 				}
 			}
 		}
@@ -172,38 +184,38 @@ void CreateShot(int Type, int x, int y)
 void PlayerAction()
 {
 	if( GetAsyncKeyState( VK_UP ) & 0x8000 ){
-		Player.y--;
-		if( Player.y < 0 ) Player.y = 0;
+		pHead->PI.y--;
+		if( pHead->PI.y < 0 ) pHead->PI.y = 0;
 	}
 	if( GetAsyncKeyState( VK_DOWN ) & 0x8000 ){
-		Player.y++;
-		if( Player.y >= HEIGHT ) Player.y = HEIGHT-1;
+		pHead->PI.y++;
+		if( pHead->PI.y >= HEIGHT ) pHead->PI.y = HEIGHT-1;
 	}
 	if( GetAsyncKeyState( VK_LEFT ) & 0x8000 ){
-		Player.x -= 2;
-		if( Player.x < PLAYER_SIZE / 2 ) Player.x = PLAYER_SIZE / 2;
+		pHead->PI.x -= 2;
+		if( pHead->PI.x < PLAYER_SIZE / 2 ) pHead->PI.x = PLAYER_SIZE / 2;
 	}
 	if( GetAsyncKeyState( VK_RIGHT ) & 0x8000 ){
-		Player.x += 2;
-		if( Player.x >= WIDTH - 1 - PLAYER_SIZE / 2 ) Player.x = WIDTH - 2 - PLAYER_SIZE / 2;
+		pHead->PI.x += 2;
+		if( pHead->PI.x >= WIDTH - 1 - PLAYER_SIZE / 2 ) pHead->PI.x = WIDTH - 2 - PLAYER_SIZE / 2;
 	}
-	if( GetAsyncKeyState( VK_CONTROL ) & 0x8000 ) CreateShot( P_SHOT, Player.x, Player.y );
+	if( GetAsyncKeyState( VK_CONTROL ) & 0x8000 ) CreateShot( P_SHOT, pHead->PI.x, pHead->PI.y );
 }
 
 void EnemyAction()
 {
 	int i;
 	for(i=0;i < MAX_ENEMY;i++){
-		if(Enemy[i].LiveFlag){
-			if( Enemy[i].MoveFlag ) Enemy[i].x++;
-			else Enemy[i].x--;
+		if(Enemy[i].EI.LiveFlag){
+			if( Enemy[i].MoveFlag ) Enemy[i].EI.x++;
+			else Enemy[i].EI.x--;
 
-			if( abs(Enemy[i].StartX - Enemy[i].x) > 13 ){
-				Enemy[i].y++;
+			if( abs(Enemy[i].StartX - Enemy[i].EI.x) > 13 ){
+				Enemy[i].EI.y++;
 				Enemy[i].MoveFlag = !Enemy[i].MoveFlag;
 			}
 
-			if( rand() % 100 < 2 ) CreateShot( E_SHOT, Enemy[i].x, Enemy[i].y );
+			if( rand() % 100 < 2 ) CreateShot( E_SHOT, Enemy[i].EI.x, Enemy[i].EI.y );
 		}
 	}
 }
@@ -221,9 +233,9 @@ void InitialObject()
 			x = 17;
 			y++;
 		}
-		Enemy[i].x = x;
-		Enemy[i].y = y;
-		Enemy[i].LiveFlag = 1;
+		Enemy[i].EI.x = x;
+		Enemy[i].EI.y = y;
+		Enemy[i].EI.LiveFlag = 1;
 		Enemy[i].MoveFlag = 1;
 		Enemy[i].StartX = x;
 
@@ -231,16 +243,17 @@ void InitialObject()
 	}
 
 
-	// Player Part
-	Player.x = 39;
-	Player.y = 19;
-	Player.LiveFlag = 1;
 
-	// LinkedListPart
+	// Player Life part
 	for(j=0; j < 3; j++){
+		// Always, pHead'll be current player.
 		AddPlayerLife();
 	}
 
+	pHead->PI.x = 39;
+	pHead->PI.y = 19;
+	pHead->PI.LiveFlag = 1;
+	pHead->PI.HP = 3;
 }
 
 void AddPlayerLife(){
@@ -291,15 +304,23 @@ void Draw()
 		Screen[i][WIDTH - 1] = NULL;
 	}
 
+	memset(HpScoreLifeItem,' ', WIDTH);
+	HpScoreLifeItem[WIDTH - 2] = NULL;
+
 	DrawPlayer();
 	DrawEnemy();
 	DrawShot();
+	DrawPlayerHP();
 	DrawPlayerLife();
 
 	for(i=0;i < HEIGHT;i++){
 		MoveCursor(0, i);
 		printf(Screen[i]);
 	}
+
+	// Draw Bottom Info
+	MoveCursor(0, 24);
+	printf(HpScoreLifeItem);
 }
 
 void ShotAction()
@@ -333,9 +354,9 @@ void DrawEnemy()
 {
 	int x, y, i, j;
 	for(i=0;i < MAX_ENEMY;i++){
-		if(Enemy[i].LiveFlag){
-			x = Enemy[i].x - ENEMY_SIZE / 2;
-			y = Enemy[i].y;
+		if(Enemy[i].EI.LiveFlag){
+			x = Enemy[i].EI.x - ENEMY_SIZE / 2;
+			y = Enemy[i].EI.y;
 
 			if(y < 0 || y >= HEIGHT) continue;
 
@@ -349,9 +370,10 @@ void DrawEnemy()
 
 void DrawPlayer()
 {
+	
 	int i;
-	int x = Player.x - PLAYER_SIZE / 2;
-	int y = Player.y;
+	int x = pHead->PI.x - PLAYER_SIZE / 2;
+	int y = pHead->PI.y;
 
 	if (y < 0 || y >= HEIGHT) return;
 
@@ -359,6 +381,7 @@ void DrawPlayer()
 		if(x >= 0 && x < WIDTH ) Screen[y][x] = PlayerUnit[i];
 		x++;
 	}
+	
 }
 
 void DrawPlayerLife()
@@ -371,21 +394,48 @@ void DrawPlayerLife()
 	int i;
 	int x=50;
 
+
 	for(i=0;i < PLAYER_SIZE; i++){
-		Screen[23][x] = PlayerUnit[i];
+		HpScoreLifeItem[x] = PlayerUnit[i];
 		x++;
 	}
-	Screen[23][x] = 'x';
+	HpScoreLifeItem[x] = 'x';
 	x++;
 	// 숫자를 문자로 출력하기위해서 '0'의 아스키코드를 구하고 PlayerCount와 더한다.
-	Screen[23][x] = '0' + PlayerCount;
+	HpScoreLifeItem[x] = '0' + PlayerCount;
 }
+
+void DrawPlayerHP()
+{
+	int x = 10;
+
+	HpScoreLifeItem[x] = 'H';
+	x++;
+	HpScoreLifeItem[x] = 'P';
+	x++;
+	HpScoreLifeItem[x] = ' ';
+	x++;
+	HpScoreLifeItem[x] = '0' + pHead->PI.HP;
+}
+
+void NewStart()
+{
+	pHead->PI.x = 39;
+	pHead->PI.y = 19;
+	pHead->PI.LiveFlag = 1;
+	pHead->PI.HP = 3;
+}
+
 /*
 TODO
 1. HP
  (1) LiveFlag를 숫자로 바꾸고 LiveFlag를 줄이는 식으로 한다.
      적의 HP는 2, 플레이어의 HP는 3이다.
  (2) Linked List를 사용해서 비행기 갯수를 조절한다.
+void AddPlayerLife();
+void DrawPlayerLife();
+void ClearHeap();
+void NewStart();
 
 2. SCORE
 3. Next Stage
