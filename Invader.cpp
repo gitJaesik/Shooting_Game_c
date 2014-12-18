@@ -6,6 +6,7 @@
 
 char Screen[HEIGHT][WIDTH];
 char HpScoreLifeItem[WIDTH];
+char Score;
 
 #define TRUE					1
 
@@ -78,7 +79,7 @@ void AddPlayerLife();
 void DrawPlayerLife();
 void ClearHeap();
 void NewStart();
-void DrawPlayerHP();
+void DrawHpScoreOfPlayer();
 
 void main()
 {
@@ -91,9 +92,9 @@ void main()
 		PlayerAction();
 		ShotAction();
 
-		Draw();
-
 		CheckCrush();
+
+		Draw();
 
 		if( CheckClear() ) break;
 
@@ -145,7 +146,11 @@ void CheckCrush()
 							Shot[i].x <= Enemy[j].EI.x + ENEMY_SIZE / 2 &&
 							Shot[i].y == Enemy[j].EI.y ){
 								Shot[i].UseFlag = 0;
-								Enemy[j].EI.LiveFlag = 0;
+								Enemy[i].EI.HP--;
+								if (Enemy[i].EI.HP <= 0){
+									Enemy[j].EI.LiveFlag = 0;
+									Score++;
+								}
 								break;
 						}
 					}
@@ -156,7 +161,7 @@ void CheckCrush()
 					Shot[i].y == pHead->PI.y ){
 						Shot[i].UseFlag = 0;
 						pHead->PI.HP--;
-						if(pHead->PI.HP == 0){
+						if(pHead->PI.HP <= 0){
 							pHead->PI.LiveFlag = 0;
 						}
 
@@ -236,6 +241,7 @@ void InitialObject()
 		Enemy[i].EI.x = x;
 		Enemy[i].EI.y = y;
 		Enemy[i].EI.LiveFlag = 1;
+		Enemy[i].EI.HP= 2;
 		Enemy[i].MoveFlag = 1;
 		Enemy[i].StartX = x;
 
@@ -310,7 +316,7 @@ void Draw()
 	DrawPlayer();
 	DrawEnemy();
 	DrawShot();
-	DrawPlayerHP();
+	DrawHpScoreOfPlayer();
 	DrawPlayerLife();
 
 	for(i=0;i < HEIGHT;i++){
@@ -392,7 +398,7 @@ void DrawPlayerLife()
 	// 화면의 크기로 인하여 -#^#- x 3의 방법으로 만든다.
 
 	int i;
-	int x=50;
+	int x=60;
 
 
 	for(i=0;i < PLAYER_SIZE; i++){
@@ -405,9 +411,9 @@ void DrawPlayerLife()
 	HpScoreLifeItem[x] = '0' + PlayerCount;
 }
 
-void DrawPlayerHP()
+void DrawHpScoreOfPlayer()
 {
-	int x = 10;
+	int x = 5;
 
 	HpScoreLifeItem[x] = 'H';
 	x++;
@@ -416,6 +422,34 @@ void DrawPlayerHP()
 	HpScoreLifeItem[x] = ' ';
 	x++;
 	HpScoreLifeItem[x] = '0' + pHead->PI.HP;
+	x++;
+	HpScoreLifeItem[x] = ' ';
+	x++;
+	HpScoreLifeItem[x] = '/';
+	x++;
+	HpScoreLifeItem[x] = ' ';
+	x++;
+	HpScoreLifeItem[x] = 'S';
+	x++;
+	HpScoreLifeItem[x] = 'c';
+	x++;
+	HpScoreLifeItem[x] = 'o';
+	x++;
+	HpScoreLifeItem[x] = 'r';
+	x++;
+	HpScoreLifeItem[x] = 'e';
+	x++;
+	HpScoreLifeItem[x] = ' ';
+	if (Score){
+		x++;
+		HpScoreLifeItem[x] = '0' + Score/1000;
+		x++;
+		HpScoreLifeItem[x] = '0' + Score%1000/100;
+		x++;
+		HpScoreLifeItem[x] = '0' + Score%1000%100/10;
+		x++;
+		HpScoreLifeItem[x] = '0' + Score%1000%100%10;
+	}
 }
 
 void NewStart()
@@ -438,6 +472,11 @@ void ClearHeap();
 void NewStart();
 
 2. SCORE
+
+Make Score variable;
+Value will be changed in CheckCrush() function
+Draw in DrawHpScore
+
 3. Next Stage
 4. Item (적어도 3개 이상)
 5. Boss
