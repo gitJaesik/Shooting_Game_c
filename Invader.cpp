@@ -6,6 +6,9 @@
 
 char Screen[HEIGHT][WIDTH];
 
+#define TRUE					1
+
+
 // 플레이어 비행기 관련 
 #define PLAYER_SIZE          5
 char PlayerUnit[PLAYER_SIZE+1] = "-#^#-";
@@ -14,6 +17,16 @@ struct PlayerInfo{
 	int x, y;
 	int LiveFlag;
 };
+
+//링크드리스트로 플레이어 목숨 갯수 구현하기.
+typedef struct PlayerInfoLinkedList{
+	struct PlayerInfo PI;
+	struct PlayerInfoLinkedList *pNext;
+} PlayerLL;
+
+PlayerLL *pHead = NULL;
+PlayerLL *currentPlayer = NULL;
+int PlayerCount;
 
 struct PlayerInfo      Player;
 
@@ -61,6 +74,12 @@ void ShotAction();
 void CheckCrush();
 int CheckClear();
 
+// 링크드리스트
+void AddPlayerLife();
+void DrawPlayerLife();
+void ClearHeap();
+
+
 void main()
 {
 	Initial();
@@ -78,8 +97,10 @@ void main()
 
 		if( CheckClear() ) break;
 
-		Sleep(100);
+		Sleep(70);
 	}
+
+	ClearHeap();
 }
 
 int CheckClear()
@@ -191,6 +212,9 @@ void InitialObject()
 {
 	int i, x, y;
 
+	// for player intialize
+	int j;
+
 	x = 17, y = 1;
 	for(i=0;i < MAX_ENEMY;i++){
 		if(0 == i % 10){
@@ -206,9 +230,57 @@ void InitialObject()
 		x += 5;
 	}
 
+
+	// Player Part
 	Player.x = 39;
 	Player.y = 19;
 	Player.LiveFlag = 1;
+
+	// LinkedListPart
+	for(j=0; j < 3; j++){
+		AddPlayerLife();
+	}
+
+}
+
+void AddPlayerLife(){
+
+	PlayerLL *pTemp = (PlayerLL *)malloc( sizeof(PlayerLL) );
+	pTemp->pNext = NULL;
+
+	if( pHead == NULL) pHead = pTemp;
+	else{
+		PlayerLL *p = pHead;
+
+		while( p->pNext != NULL)
+			p = p->pNext;
+		p->pNext = pTemp;
+	}
+}
+
+void ClearHeap(){
+	PlayerLL *p = pHead;
+
+	while(p != NULL){
+		PlayerLL *pTemp = p;
+		p = p->pNext;
+		free( pTemp );
+	}
+
+	pHead = NULL;
+
+	printf("All heap is deleted");
+}
+
+void GetPlayerLife(){
+	PlayerLL *p = pHead;
+	PlayerCount = 0;
+
+	while(p != NULL){
+		PlayerCount++;
+		p = p->pNext;
+	}
+
 }
 
 void Draw()
@@ -222,6 +294,7 @@ void Draw()
 	DrawPlayer();
 	DrawEnemy();
 	DrawShot();
+	DrawPlayerLife();
 
 	for(i=0;i < HEIGHT;i++){
 		MoveCursor(0, i);
@@ -288,11 +361,38 @@ void DrawPlayer()
 	}
 }
 
+void DrawPlayerLife()
+{
+	GetPlayerLife();
+
+	// strcat으로 -#^#- 을 -#^#- -#^#- 여러대 그릴 수 있지만
+	// 화면의 크기로 인하여 -#^#- x 3의 방법으로 만든다.
+
+	int i;
+	int x=50;
+
+	for(i=0;i < PLAYER_SIZE; i++){
+		Screen[23][x] = PlayerUnit[i];
+		x++;
+	}
+	Screen[23][x] = 'x';
+	x++;
+	// 숫자를 문자로 출력하기위해서 '0'의 아스키코드를 구하고 PlayerCount와 더한다.
+	Screen[23][x] = '0' + PlayerCount;
+}
 /*
 TODO
 1. HP
+ (1) LiveFlag를 숫자로 바꾸고 LiveFlag를 줄이는 식으로 한다.
+     적의 HP는 2, 플레이어의 HP는 3이다.
+ (2) Linked List를 사용해서 비행기 갯수를 조절한다.
+
 2. SCORE
 3. Next Stage
 4. Item (적어도 3개 이상)
 5. Boss
+
+2 인용게임 만들기
+소리?
+
 */
