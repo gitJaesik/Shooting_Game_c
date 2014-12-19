@@ -7,9 +7,10 @@
 char Screen[HEIGHT][WIDTH];
 char HpScoreLifeItem[WIDTH];
 char Score;
+int Stage;
 
 #define TRUE					1
-
+#define MAX_STAGE			2
 
 // 플레이어 비행기 관련 
 #define PLAYER_SIZE          5
@@ -19,6 +20,7 @@ struct ObjectInfo{
 	int x, y;
 	int LiveFlag;
 	int HP;
+	int ShotType;
 };
 
 //링크드리스트로 플레이어 목숨 갯수 구현하기.
@@ -46,11 +48,12 @@ struct EnemyInfo      Enemy[MAX_ENEMY];
 
 // 총알 관련
 
-#define P_SHOT         0
-#define E_SHOT         1
-
+#define P_SHOT			0
+#define E_SHOT			1
+#define SUPER_SHOT		2
 char PlayerShot = '|';
 char EnemyShot = '*';
+char SuperShot = ':';
 
 struct ShotInfo{
 	int x, y;
@@ -58,14 +61,34 @@ struct ShotInfo{
 	int UseFlag;
 };
 
-#define MAX_SHOT      20
+#define MAX_SHOT			40
 struct ShotInfo         Shot[MAX_SHOT];
+
+struct ItemInfo{
+	int x, y;
+	int Type;
+	int UseFlag;
+};
+
+
+#define POWERUP_ITEM		0
+#define LIFE_ITEM		0
+#define BOMB_ITEM		0
+char PowerUpItem = '#';
+char LifeItem = '♡';
+char BombItem = '☆';
+int ItemSpeed = 0;
+
+#define MAX_ITEM			10
+struct ItemInfo			Item[MAX_ITEM];
 
 // 함수
 void InitialObject();
 void DrawPlayer();
 void DrawEnemy();
 void Draw();
+void DrawScreenClear();
+
 void EnemyAction();
 void PlayerAction();
 void CreateShot(int Type, int x, int y);
@@ -73,6 +96,10 @@ void DrawShot();
 void ShotAction();
 void CheckCrush();
 int CheckClear();
+
+void CreateItem(int Type, int x, int y);
+void DrawItem();
+void ItemAction();
 
 // 링크드리스트
 void AddPlayerLife();
@@ -84,21 +111,33 @@ void DrawHpScoreOfPlayer();
 void main()
 {
 	Initial();
-	InitialObject();
 	srand((unsigned int)time(NULL));
 
-	while(1){
-		EnemyAction();
-		PlayerAction();
-		ShotAction();
+	MoveCursor(30, 12);
+	printf("Stage 선택화면.. 자동으로 시작합니다.!\n");
+	Sleep(1000);
 
-		CheckCrush();
+	// Stage = 0 could be changed by User
+	for(Stage = 0; Stage < MAX_STAGE; Stage++){
 
-		Draw();
+		InitialObject();
 
-		if( CheckClear() ) break;
+		while(1){
+			EnemyAction();
+			PlayerAction();
+			ShotAction();
+			ItemAction();
+			CheckCrush();
+			Draw();
+			if( CheckClear() ) break;
 
-		Sleep(70);
+			Sleep(70 - Stage*10);
+		}
+
+		if(pHead->PI.LiveFlag == 0){
+			// game over
+			break;
+		}
 	}
 
 	ClearHeap();
@@ -139,17 +178,18 @@ void CheckCrush()
 	int i, j;
 	for(i=0; i < MAX_SHOT; i++){
 		if( Shot[i].UseFlag ){
-			if( Shot[i].Type == P_SHOT ){
+			if( Shot[i].Type == P_SHOT || Shot[i].Type == SUPER_SHOT ){
 				for( j=0; j < MAX_ENEMY; j++){
 					if( Enemy[j].EI.LiveFlag ){
 						if( Shot[i].x >= Enemy[j].EI.x - ENEMY_SIZE / 2 &&
 							Shot[i].x <= Enemy[j].EI.x + ENEMY_SIZE / 2 &&
 							Shot[i].y == Enemy[j].EI.y ){
 								Shot[i].UseFlag = 0;
-								Enemy[i].EI.HP--;
-								if (Enemy[i].EI.HP <= 0){
+								Enemy[j].EI.HP--;
+								if (Enemy[j].EI.HP <= 0){
 									Enemy[j].EI.LiveFlag = 0;
 									Score++;
+									if( rand() % 100 < 70 ) CreateItem( POWERUP_ITEM, Enemy[j].EI.x, Enemy[j].EI.y );
 								}
 								break;
 						}
@@ -169,19 +209,17 @@ void CheckCrush()
 			}
 		}
 	}
-}
 
-void CreateShot(int Type, int x, int y)
-{
-	int i;
-	for( i=0; i < MAX_SHOT; i++){
-		if( Shot[i].UseFlag == 0 ){
-			Shot[i].UseFlag = 1;
-			Shot[i].x = x;
-			Shot[i].y = y;
-			Shot[i].Type = Type;
-
-			return;
+	for(i=0; i < MAX_ITEM; i++){
+		if( Item[i].UseFlag ) {
+			if( Item[i].x >= pHead->PI.x - PLAYER_SIZE / 2 &&
+				Item[i].x <= pHead->PI.x + PLAYER_SIZE / 2 &&
+				Item[i].y == pHead->PI.y ){
+					Item[i].UseFlag = 0;
+					if(Item[i].Type == POWERUP_ITEM){
+						pHead->PI.ShotType++;
+					}
+			}
 		}
 	}
 }
@@ -204,23 +242,61 @@ void PlayerAction()
 		pHead->PI.x += 2;
 		if( pHead->PI.x >= WIDTH - 1 - PLAYER_SIZE / 2 ) pHead->PI.x = WIDTH - 2 - PLAYER_SIZE / 2;
 	}
-	if( GetAsyncKeyState( VK_CONTROL ) & 0x8000 ) CreateShot( P_SHOT, pHead->PI.x, pHead->PI.y );
+	if( GetAsyncKeyState( VK_CONTROL ) & 0x8000 )
+	{
+		if(pHead->PI.ShotType == 0){
+			CreateShot( P_SHOT, pHead->PI.x, pHead->PI.y );
+		}else if(pHead->PI.ShotType >= 1){
+			CreateShot( SUPER_SHOT, pHead->PI.x, pHead->PI.y );
+		}
+
+	}
 }
 
 void EnemyAction()
 {
 	int i;
-	for(i=0;i < MAX_ENEMY;i++){
-		if(Enemy[i].EI.LiveFlag){
-			if( Enemy[i].MoveFlag ) Enemy[i].EI.x++;
-			else Enemy[i].EI.x--;
+	if(Stage == 0){
+		for(i=0;i < MAX_ENEMY;i++){
+			if(Enemy[i].EI.LiveFlag){
+				if( Enemy[i].MoveFlag ) Enemy[i].EI.x++;
+				else Enemy[i].EI.x--;
 
-			if( abs(Enemy[i].StartX - Enemy[i].EI.x) > 13 ){
-				Enemy[i].EI.y++;
-				Enemy[i].MoveFlag = !Enemy[i].MoveFlag;
+				if( abs(Enemy[i].StartX - Enemy[i].EI.x) > 13 ){
+					Enemy[i].EI.y++;
+					Enemy[i].MoveFlag = !Enemy[i].MoveFlag;
+				}
+
+				if( rand() % 100 < 1 ) CreateShot( E_SHOT, Enemy[i].EI.x, Enemy[i].EI.y );
 			}
+		}
+	}else if(Stage == 1){
+		for(i=0;i < MAX_ENEMY;i++){
+			if(Enemy[i].EI.LiveFlag){
 
-			if( rand() % 100 < 2 ) CreateShot( E_SHOT, Enemy[i].EI.x, Enemy[i].EI.y );
+				if(Enemy[i].MoveFlag == 3){
+					Enemy[i].EI.x++;
+					Enemy[i].EI.y++;
+					if( abs(Enemy[i].StartX - Enemy[i].EI.x) > 7){
+						Enemy[i].MoveFlag = 2;
+					}
+				}else if(Enemy[i].MoveFlag == 2){
+					Enemy[i].EI.x--;
+					Enemy[i].EI.y -= 1;
+					if( Enemy[i].StartX - Enemy[i].EI.x == 0){
+						Enemy[i].MoveFlag = 1;
+					}
+				}else if(Enemy[i].MoveFlag == 1){
+					Enemy[i].EI.y += 3;
+					Enemy[i].MoveFlag = 3;
+				}
+
+				if(Enemy[i].EI.y >= HEIGHT - 1){
+					Enemy[i].EI.y = 5;
+				}
+
+				if( rand() % 100 < 5 ) CreateShot( E_SHOT, Enemy[i].EI.x, Enemy[i].EI.y );
+			}
 		}
 	}
 }
@@ -232,23 +308,39 @@ void InitialObject()
 	// for player intialize
 	int j;
 
-	x = 17, y = 1;
-	for(i=0;i < MAX_ENEMY;i++){
-		if(0 == i % 10){
-			x = 17;
-			y++;
+	if(Stage == 0){
+		x = 17, y = 1;
+		for(i=0;i < MAX_ENEMY;i++){
+			if(0 == i % 10){
+				x = 17;
+				y++;
+			}
+			Enemy[i].EI.x = x;
+			Enemy[i].EI.y = y;
+			Enemy[i].EI.LiveFlag = 1;
+			Enemy[i].EI.HP= 2;
+			Enemy[i].MoveFlag = 1;
+			Enemy[i].StartX = x;
+
+			x += 5;
 		}
-		Enemy[i].EI.x = x;
-		Enemy[i].EI.y = y;
-		Enemy[i].EI.LiveFlag = 1;
-		Enemy[i].EI.HP= 2;
-		Enemy[i].MoveFlag = 1;
-		Enemy[i].StartX = x;
+	}else if(Stage == 1){
+		x = 17, y = 3;
+		for(i=0;i < MAX_ENEMY;i++){
+			if(0 == i % 10){
+				x = 17;
+				y++;
+			}
+			Enemy[i].EI.x = x;
+			Enemy[i].EI.y = y;
+			Enemy[i].EI.LiveFlag = 1;
+			Enemy[i].EI.HP= 3;
+			Enemy[i].MoveFlag = 3;
+			Enemy[i].StartX = x;
 
-		x += 5;
+			x += 5;
+		}
 	}
-
-
 
 	// Player Life part
 	for(j=0; j < 3; j++){
@@ -260,6 +352,7 @@ void InitialObject()
 	pHead->PI.y = 19;
 	pHead->PI.LiveFlag = 1;
 	pHead->PI.HP = 3;
+	pHead->PI.ShotType = 0;
 }
 
 void AddPlayerLife(){
@@ -316,6 +409,7 @@ void Draw()
 	DrawPlayer();
 	DrawEnemy();
 	DrawShot();
+	DrawItem();
 	DrawHpScoreOfPlayer();
 	DrawPlayerLife();
 
@@ -329,6 +423,56 @@ void Draw()
 	printf(HpScoreLifeItem);
 }
 
+void DrawScreenClear()
+{
+	int i;
+	for(i=0;i < HEIGHT;i++){
+		memset(Screen[i],' ', WIDTH);
+		Screen[i][WIDTH - 1] = NULL;
+	}
+
+}
+
+void CreateShot(int Type, int x, int y)
+{
+	int i,j;
+	int NumberOfShot = 1;
+
+	if(Type == E_SHOT || Type == P_SHOT){
+		for( i=0; i < MAX_SHOT; i++){
+			if( Shot[i].UseFlag == 0 ){
+				Shot[i].UseFlag = 1;
+				Shot[i].x = x;
+				Shot[i].y = y;
+				Shot[i].Type = Type;
+
+				return;
+			}
+		}
+	}else{
+		for(j=0; j < pHead->PI.ShotType; j++){
+			for( i=0; i < MAX_SHOT; i++){
+				if( Shot[i].UseFlag == 0 ){
+					Shot[i].UseFlag = 1;
+					if(j == 0){
+						Shot[i].x = x;
+					}else if(j % 2 == 1){
+						Shot[i].x = x+NumberOfShot;
+					}else if(j % 2 == 0){
+						Shot[i].x = x-NumberOfShot;
+						NumberOfShot++;
+					}
+					Shot[i].y = y;
+					Shot[i].Type = Type;
+
+					break;
+					//return;
+				}
+			}
+		}
+	}
+}
+
 void ShotAction()
 {
 	int i;
@@ -339,6 +483,9 @@ void ShotAction()
 				if( Shot[i].y < 0 ) Shot[i].UseFlag = 0;
 			} else if( Shot[i].Type == E_SHOT ){
 				Shot[i].y++;
+				if( Shot[i].y >= HEIGHT ) Shot[i].UseFlag = 0;
+			} else if( Shot[i].Type == SUPER_SHOT ){
+				Shot[i].y--;
 				if( Shot[i].y >= HEIGHT ) Shot[i].UseFlag = 0;
 			}
 		}
@@ -352,6 +499,7 @@ void DrawShot()
 		if( Shot[i].UseFlag ){
 			if( Shot[i].Type == P_SHOT ) Screen[ Shot[i].y ][ Shot[i].x ] = PlayerShot;
 			else if( Shot[i].Type == E_SHOT ) Screen[ Shot[i].y ][ Shot[i].x ] = EnemyShot;
+			else if( Shot[i].Type == SUPER_SHOT ) Screen[ Shot[i].y ][ Shot[i].x ] = SuperShot;
 		}
 	}
 }
@@ -458,6 +606,56 @@ void NewStart()
 	pHead->PI.y = 19;
 	pHead->PI.LiveFlag = 1;
 	pHead->PI.HP = 3;
+	pHead->PI.ShotType = 0;
+}
+
+void CreateItem(int Type, int x, int y)
+{
+	int i;
+	for( i=0; i < MAX_ITEM; i++){
+		if( Item[i].UseFlag == 0 ){
+			Item[i].UseFlag = 1;
+			Item[i].x = x;
+			Item[i].y = y;
+			Item[i].Type = Type;
+
+			return;
+		}
+	}
+}
+
+void DrawItem()
+{
+	int i;
+	for(i=0;i < MAX_ITEM;i++){
+		if( Item[i].UseFlag ){
+			if( Item[i].Type == POWERUP_ITEM ) Screen[ Item[i].y ][ Item[i].x ] = PowerUpItem;
+			else if( Item[i].Type == LIFE_ITEM ) Screen[ Item[i].y ][ Item[i].x ] = LifeItem;
+			else if( Item[i].Type == BOMB_ITEM ) Screen[ Item[i].y ][ Item[i].x ] = BombItem;
+		}
+	}
+}
+
+
+void ItemAction()
+{
+	int i;
+	if(ItemSpeed ==1){
+		for(i=0;i < MAX_SHOT;i++){
+			if( Item[i].UseFlag ){
+				if( Item[i].Type == POWERUP_ITEM ||
+					Item[i].Type == LIFE_ITEM ||
+					Item[i].Type == BOMB_ITEM ){
+
+						Item[i].y++;
+						if( Item[i].y >= HEIGHT ) Item[i].UseFlag = 0;
+				}
+			}
+		}
+		ItemSpeed = 0;
+	}else if(ItemSpeed == 0){
+		ItemSpeed = 1;
+	}
 }
 
 /*
@@ -478,7 +676,35 @@ Value will be changed in CheckCrush() function
 Draw in DrawHpScore
 
 3. Next Stage
+
+전역변수 사용 int Stage;
+스테이지 별로 printf 사용
+for에서 while 시작 전에 스테이지 설명 후 sleep
+스테이지 시작
+if all enemy died, do next stage
+
+***스테이지 별로 조금씩 변해야하는 것***
+InitialObject - Initial Location, HP
+EnemyAction - Action
+ShotAction - Action
+CreateShot - Action
+CheckCrush - MAX_ENEMY SIZE
+CheckClear - MAX_ENEMY SIZE
+DrawEnemy - MAX_ENEMY SIZE
+While Sleep Speed
+일단 SIZE파트는 바꾸지 않는다.
+
 4. Item (적어도 3개 이상)
+
+CreateItem(); // It's similar with CreateShot
+struct ItemInfo();
+DrawItem();
+ItemAction();
+CheckCrush(); - Item 부분 체크하기
+
+SuperShot, Bomb, Hp
+  a. SuperShot (Change Shot type)
+
 5. Boss
 
 2 인용게임 만들기
