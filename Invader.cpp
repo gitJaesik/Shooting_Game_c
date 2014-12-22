@@ -10,7 +10,7 @@ char Score;
 int Stage;
 
 #define TRUE					1
-#define MAX_STAGE			2
+#define MAX_STAGE			3
 
 // 플레이어 비행기 관련 
 #define PLAYER_SIZE          5
@@ -61,7 +61,7 @@ struct ShotInfo{
 	int UseFlag;
 };
 
-#define MAX_SHOT			40
+#define MAX_SHOT			100
 struct ShotInfo         Shot[MAX_SHOT];
 
 struct ItemInfo{
@@ -82,10 +82,21 @@ int ItemSpeed = 0;
 #define MAX_ITEM			10
 struct ItemInfo			Item[MAX_ITEM];
 
+#define BOSS_SIZE			9
+char BossUnit[BOSS_SIZE+1] = "/@@mMm@@\\";
+
+struct BossInfo{
+	ObjectInfo EI;
+	int MoveFlag;
+	int StartX;
+};
+struct BossInfo Boss;
+
 // 함수
 void InitialObject();
 void DrawPlayer();
 void DrawEnemy();
+void DrawBoss();
 void Draw();
 void DrawScreenClear();
 
@@ -160,15 +171,25 @@ int CheckClear()
 	}
 
 	int i;
-	for(i=0; i < MAX_ENEMY; i++){
-		if( Enemy[i].EI.LiveFlag ) return 0;
+	if(Stage == 0 || Stage == 1){
+		for(i=0; i < MAX_ENEMY; i++){
+			if( Enemy[i].EI.LiveFlag ) return 0;
+		}
+
+		MoveCursor(35, 12);
+		printf("적은 모두 격추!");
+		Sleep(1000);
+
+		return 1;
+	}else if(Stage == 2){
+		if(Boss.EI.LiveFlag) return 0;
+
+		MoveCursor(35, 12);
+		printf("미션클리어!");
+		Sleep(2000);
+
+		return 1;
 	}
-
-	MoveCursor(35, 12);
-	printf("적은 모두 격추!");
-	Sleep(1000);
-
-	return 1;
 	
 }
 
@@ -179,22 +200,34 @@ void CheckCrush()
 	for(i=0; i < MAX_SHOT; i++){
 		if( Shot[i].UseFlag ){
 			if( Shot[i].Type == P_SHOT || Shot[i].Type == SUPER_SHOT ){
-				for( j=0; j < MAX_ENEMY; j++){
-					if( Enemy[j].EI.LiveFlag ){
-						if( Shot[i].x >= Enemy[j].EI.x - ENEMY_SIZE / 2 &&
-							Shot[i].x <= Enemy[j].EI.x + ENEMY_SIZE / 2 &&
-							Shot[i].y == Enemy[j].EI.y ){
-								Shot[i].UseFlag = 0;
-								Enemy[j].EI.HP--;
-								if (Enemy[j].EI.HP <= 0){
-									Enemy[j].EI.LiveFlag = 0;
-									Score++;
-									if( rand() % 100 < 0 ) CreateItem( POWERUP_ITEM, Enemy[j].EI.x, Enemy[j].EI.y );
-									else if( rand() %100 < 100) CreateItem( BOMB_ITEM, Enemy[j].EI.x, Enemy[j].EI.y);
-									else if( rand() %100 < 0) CreateItem( LIFE_ITEM, Enemy[j].EI.x, Enemy[j].EI.y);
-								}
-								break;
+				if(Stage == 0 || Stage == 1){
+					for( j=0; j < MAX_ENEMY; j++){
+						if( Enemy[j].EI.LiveFlag ){
+							if( Shot[i].x >= Enemy[j].EI.x - ENEMY_SIZE / 2 &&
+								Shot[i].x <= Enemy[j].EI.x + ENEMY_SIZE / 2 &&
+								Shot[i].y == Enemy[j].EI.y ){
+									Shot[i].UseFlag = 0;
+									Enemy[j].EI.HP--;
+									if (Enemy[j].EI.HP <= 0){
+										Enemy[j].EI.LiveFlag = 0;
+										Score++;
+										if( rand() % 100 < 60 ) CreateItem( POWERUP_ITEM, Enemy[j].EI.x, Enemy[j].EI.y );
+										else if( rand() %100 < 5) CreateItem( BOMB_ITEM, Enemy[j].EI.x, Enemy[j].EI.y);
+										else if( rand() %100 < 3) CreateItem( LIFE_ITEM, Enemy[j].EI.x, Enemy[j].EI.y);
+									}
+									break;
+							}
 						}
+					}
+				}else if(Stage == 2){
+					if(Shot[i].x >= Boss.EI.x - BOSS_SIZE / 2 &&
+						Shot[i].x <= Boss.EI.x + BOSS_SIZE / 2 &&
+						Shot[i].y == Boss.EI.y){
+							Boss.EI.HP--;
+							if(Boss.EI.HP <= 0){
+								Boss.EI.LiveFlag = 0;
+								Score++;
+							}
 					}
 				}
 			} else if( Shot[i].Type == E_SHOT ) {
@@ -312,7 +345,47 @@ void EnemyAction()
 					Enemy[i].EI.y = 5;
 				}
 
-				if( rand() % 100 < 5 ) CreateShot( E_SHOT, Enemy[i].EI.x, Enemy[i].EI.y );
+				if( rand() % 100 < 3 ) CreateShot( E_SHOT, Enemy[i].EI.x, Enemy[i].EI.y );
+			}
+		}
+	}else if(Stage == 2){
+		if(Boss.EI.LiveFlag == 1){
+			if(Boss.MoveFlag == 4){
+				Boss.EI.x += 2;
+				Boss.EI.y++;
+				if( abs(Boss.StartX - Boss.EI.x) > 10){
+					Boss.MoveFlag = 3;
+				}
+			}else if(Boss.MoveFlag == 3){
+				Boss.EI.x -= 2;
+				if( abs(Boss.StartX - Boss.EI.x) == 0){
+					Boss.MoveFlag = 2;
+				}
+			}else if(Boss.MoveFlag == 2){
+				Boss.EI.x += 2;
+				Boss.EI.y--;
+				if( abs(Boss.StartX - Boss.EI.x) > 10){
+					Boss.MoveFlag = 1;
+				}
+			}else if(Boss.MoveFlag == 1){
+				Boss.EI.x -= 2;
+				if( abs(Boss.StartX - Boss.EI.x) == 0){
+					Boss.MoveFlag = 4;
+				}
+			}
+			if( rand() % 100 < 5 ) CreateShot( E_SHOT, Boss.EI.x, Boss.EI.y );
+			if( rand() % 100 < 5 ) CreateShot( E_SHOT, Boss.EI.x+1, Boss.EI.y );
+			if( rand() % 100 < 5 ) CreateShot( E_SHOT, Boss.EI.x-1, Boss.EI.y );
+			if( rand() % 100 < 1 ){
+				CreateShot( E_SHOT, Boss.EI.x-4, Boss.EI.y );
+				CreateShot( E_SHOT, Boss.EI.x-3, Boss.EI.y );
+				CreateShot( E_SHOT, Boss.EI.x-2, Boss.EI.y );
+				CreateShot( E_SHOT, Boss.EI.x-1, Boss.EI.y );
+				CreateShot( E_SHOT, Boss.EI.x, Boss.EI.y );
+				CreateShot( E_SHOT, Boss.EI.x+1, Boss.EI.y );
+				CreateShot( E_SHOT, Boss.EI.x+2, Boss.EI.y );
+				CreateShot( E_SHOT, Boss.EI.x+3, Boss.EI.y );
+				CreateShot( E_SHOT, Boss.EI.x+4, Boss.EI.y );
 			}
 		}
 	}
@@ -338,12 +411,8 @@ void InitialObject()
 			Enemy[i].EI.HP= 2;
 			Enemy[i].MoveFlag = 1;
 			Enemy[i].StartX = x;
-
 			x += 5;
 		}
-
-		
-
 	}else if(Stage == 1){
 		x = 17, y = 3;
 		for(i=0;i < MAX_ENEMY;i++){
@@ -357,9 +426,15 @@ void InitialObject()
 			Enemy[i].EI.HP= 3;
 			Enemy[i].MoveFlag = 3;
 			Enemy[i].StartX = x;
-
 			x += 5;
 		}
+	}else if(Stage == 2){
+		Boss.EI.HP = 10;
+		Boss.EI.LiveFlag = 1;
+		Boss.MoveFlag = 4;
+		Boss.EI.x = 39;
+		Boss.EI.y = 3;
+		Boss.StartX = Boss.EI.x;
 	}
 
 	// Player Life part
@@ -371,7 +446,7 @@ void InitialObject()
 	pHead->PI.x = 39;
 	pHead->PI.y = 19;
 	pHead->PI.LiveFlag = 1;
-	pHead->PI.HP = 3;
+	pHead->PI.HP = 9;
 	// Set default ShotType when I start at first
 	if(Stage == 0){
 		pHead->PI.ShotType = 0;
@@ -432,6 +507,7 @@ void Draw()
 
 	DrawPlayer();
 	DrawEnemy();
+	if(Stage == 2) DrawBoss();
 	DrawShot();
 	DrawItem();
 	DrawHpScoreOfPlayer();
@@ -559,7 +635,21 @@ void DrawPlayer()
 		if(x >= 0 && x < WIDTH ) Screen[y][x] = PlayerUnit[i];
 		x++;
 	}
+}
+
+void DrawBoss()
+{
+	int i;
 	
+	int x = Boss.EI.x - BOSS_SIZE / 2;
+	int y = Boss.EI.y;
+
+	if (y < 0 || y >= HEIGHT) return;
+
+	for(i=0;i < BOSS_SIZE; i++){
+		if(x >= 0 && x < WIDTH ) Screen[y][x] = BossUnit[i];
+		x++;
+	}
 }
 
 void DrawPlayerLife()
