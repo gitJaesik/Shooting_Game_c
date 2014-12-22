@@ -71,12 +71,12 @@ struct ItemInfo{
 };
 
 
-#define POWERUP_ITEM		0
-#define LIFE_ITEM		0
-#define BOMB_ITEM		0
+#define POWERUP_ITEM		100
+#define LIFE_ITEM		101
+#define BOMB_ITEM		102
 char PowerUpItem = '#';
-char LifeItem = '¢½';
-char BombItem = '¡Ù';
+char LifeItem = '$';
+char BombItem = 'P';
 int ItemSpeed = 0;
 
 #define MAX_ITEM			10
@@ -189,7 +189,9 @@ void CheckCrush()
 								if (Enemy[j].EI.HP <= 0){
 									Enemy[j].EI.LiveFlag = 0;
 									Score++;
-									if( rand() % 100 < 70 ) CreateItem( POWERUP_ITEM, Enemy[j].EI.x, Enemy[j].EI.y );
+									if( rand() % 100 < 0 ) CreateItem( POWERUP_ITEM, Enemy[j].EI.x, Enemy[j].EI.y );
+									else if( rand() %100 < 100) CreateItem( BOMB_ITEM, Enemy[j].EI.x, Enemy[j].EI.y);
+									else if( rand() %100 < 0) CreateItem( LIFE_ITEM, Enemy[j].EI.x, Enemy[j].EI.y);
 								}
 								break;
 						}
@@ -217,7 +219,22 @@ void CheckCrush()
 				Item[i].y == pHead->PI.y ){
 					Item[i].UseFlag = 0;
 					if(Item[i].Type == POWERUP_ITEM){
-						pHead->PI.ShotType++;
+						if(pHead->PI.ShotType < 20)	pHead->PI.ShotType++;
+					}
+					if(Item[i].Type == LIFE_ITEM){
+						AddPlayerLife();
+					}
+
+					if(Item[i].Type == BOMB_ITEM){
+						for( int p = 0; p < 5; p++){
+							for( int q = 0; q < MAX_ENEMY; q++){
+								if( Enemy[q].EI.LiveFlag ){
+									Enemy[q].EI.LiveFlag = 0;
+									Score++;
+									break;
+								}
+							}
+						}
 					}
 			}
 		}
@@ -324,6 +341,9 @@ void InitialObject()
 
 			x += 5;
 		}
+
+		
+
 	}else if(Stage == 1){
 		x = 17, y = 3;
 		for(i=0;i < MAX_ENEMY;i++){
@@ -352,7 +372,11 @@ void InitialObject()
 	pHead->PI.y = 19;
 	pHead->PI.LiveFlag = 1;
 	pHead->PI.HP = 3;
-	pHead->PI.ShotType = 0;
+	// Set default ShotType when I start at first
+	if(Stage == 0){
+		pHead->PI.ShotType = 0;
+	}
+	
 }
 
 void AddPlayerLife(){
