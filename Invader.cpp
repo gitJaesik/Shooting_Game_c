@@ -486,7 +486,7 @@ void ShotAction()
 				if( Shot[i].y >= HEIGHT ) Shot[i].UseFlag = 0;
 			} else if( Shot[i].Type == SUPER_SHOT ){
 				Shot[i].y--;
-				if( Shot[i].y >= HEIGHT ) Shot[i].UseFlag = 0;
+				if( Shot[i].y < 0 ) Shot[i].UseFlag = 0;
 			}
 		}
 	}
