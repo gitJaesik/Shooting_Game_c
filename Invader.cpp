@@ -119,10 +119,16 @@ void ClearHeap();
 void NewStart();
 void DrawHpScoreOfPlayer();
 
+// 파일 관리
+void SaveConqueror();
+void ShowConqueror();
+
 void main()
 {
 	Initial();
 	srand((unsigned int)time(NULL));
+
+	ShowConqueror();
 
 	MoveCursor(30, 12);
 	printf("Stage 선택화면.. 자동으로 시작합니다.!\n");
@@ -142,7 +148,7 @@ void main()
 			Draw();
 			if( CheckClear() ) break;
 
-			Sleep(70 - Stage*10);
+			Sleep(50 - Stage*10);
 		}
 
 		if(pHead->PI.LiveFlag == 0){
@@ -151,6 +157,8 @@ void main()
 		}
 	}
 
+	// SavePlayerName
+	SaveConqueror();
 	ClearHeap();
 }
 
@@ -480,7 +488,7 @@ void ClearHeap(){
 
 	pHead = NULL;
 
-	printf("All heap is deleted");
+	//printf("All heap is deleted");
 }
 
 void GetPlayerLife(){
@@ -772,6 +780,88 @@ void ItemAction()
 	}
 }
 
+void SaveConqueror()
+{
+	int i;
+	char Name[20];
+	
+	FILE *pFILE;
+
+	for(i=0;i < HEIGHT;i++){
+		memset(Screen[i],' ', WIDTH);
+		Screen[i][WIDTH - 1] = NULL;
+	}
+
+	for(i=0;i < HEIGHT;i++){
+		MoveCursor(0, i);
+		printf(Screen[i]);
+	}
+
+	MoveCursor(30, 12);
+	printf("save your name becaue you conquer this game");
+	MoveCursor(30, 13);
+	printf("Name : ");
+	scanf("%s", Name);
+
+	pFILE = fopen(".\\conqueror.dat", "ab");
+	if(pFILE != NULL){
+		fwrite( Name, sizeof(char), 20, pFILE);
+		fclose( pFILE );
+	}
+
+	for(i=0;i < HEIGHT;i++){
+		memset(Screen[i],' ', WIDTH);
+		Screen[i][WIDTH - 1] = NULL;
+	}
+
+	for(i=0;i < HEIGHT;i++){
+		MoveCursor(0, i);
+		printf(Screen[i]);
+	}
+
+	MoveCursor(30, 12);
+	printf("Saved Complete!");
+	Sleep(1000);
+}
+
+void ShowConqueror()
+{
+	int i, j;
+	char Name[20];
+	int ReceiveDataByte;
+	
+	FILE *pFILE;
+
+	// Clear Screen
+	for(i=0;i < HEIGHT;i++){
+		memset(Screen[i],' ', WIDTH);
+		Screen[i][WIDTH - 1] = NULL;
+	}
+
+	for(i=0;i < HEIGHT;i++){
+		MoveCursor(0, i);
+		printf(Screen[i]);
+	}
+
+	MoveCursor(12, 10);
+	printf("****************  Conquer  ***********************");
+
+	// Read data
+	pFILE = fopen(".\\conqueror.dat", "rb");
+	if(pFILE != NULL){
+		j = 12;
+		do{
+		ReceiveDataByte = fread( Name, sizeof(char), 20, pFILE);
+		MoveCursor(28, j);
+		printf("- %s",Name);
+		j++;
+		}while( ReceiveDataByte >= 10);
+		fclose( pFILE );
+	}
+
+	Sleep( 4000 );
+
+}
 /*
 TODO
 1. HP
@@ -820,6 +910,8 @@ SuperShot, Bomb, Hp
   a. SuperShot (Change Shot type)
 
 5. Boss
+
+6. SaveConqueror
 
 2 인용게임 만들기
 소리?

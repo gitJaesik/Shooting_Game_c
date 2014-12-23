@@ -89,6 +89,44 @@ printf (do not use this line yet)	               x
     (1) If Player is died( Player.LiveFlag is 0 ), Print "Game Over"
 	(2) If All Enemies is died( Enemy[].LiveFlag is 0 ), Print "Mission Complete!"
 
+9. Change Player Object to Linked List Form
+  a. Concept
+    (1) Expandability - The codes which has concept above can't increase Enemy over 30. So, before make Simple Enemy Structer to Linked List Structure, I made Linked List type's player object
+  b. Prons and Cons
+    (1) Prons - It's easy to management object if you are familiar with linkedlist
+              - Good Expandability
+    (2) Cons - It's TOO OVER SPEC and there are many other method to implement things which we'll make
+
+10. Add ObjectInfo structure to remove common attribute
+  a. Concept
+    (1) To make code looks simple.
+
+11. Score
+  a. Concpet
+    (1) If player hunt enemy, get scores.
+    (2) Show Score all the time
+  b. Structure
+    (1) Add Global Variable to access Score from anywhere.
+    (2) Use DrawHpScoreOfPlayer() function. 
+
+12. Stage
+  a. Concept
+    (1) Add Stage global variable
+    (2) Add for statement in main function and Chagne functions ( EnemyAction(), CheckCrush(), Draw(), CheckClear() ) by Stage variable
+
+13. Item
+  a. Concept
+    (1) Item will be created when Enemeies are crushed by probability.
+    (2) It'll work likes shot
+    (3) The kinds of Item are related in ShotType, PlayerLife, Bomb. ShotType will make player's shot more Powerful. PlayerLife will add a PlayerLife. Bomb will cruch 5 enemies randomly.
+  b. Structure
+    (1) It's quite similiar with Shot. All functions ( ItemAction, DrawItem, CreateItem ), struct ItemInfo, and CrushCheck will be almost same.
+
+14. Boss
+  a. Concept
+    (1) Make a Boss for the fun game. I add basic boss attribute likes durable Heart point, and so on.
+    (2) It was just a enemy which make many shot than normal one and have many hp.
+
 한계점
 1. 충돌체크
 2. Key를 빨리 입력하고 떼었을 때
