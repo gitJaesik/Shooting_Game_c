@@ -437,7 +437,7 @@ void InitialObject()
 			x += 5;
 		}
 	}else if(Stage == 2){
-		Boss.EI.HP = 10;
+		Boss.EI.HP = 200;
 		Boss.EI.LiveFlag = 1;
 		Boss.MoveFlag = 4;
 		Boss.EI.x = 39;
@@ -912,6 +912,12 @@ SuperShot, Bomb, Hp
 5. Boss
 
 6. SaveConqueror
+
+// FILE Cursor를 끝으로 이동시킨다.
+fseek( pFILE, 0, SEEK_END );
+// 처음부터 현재 커서(지금은 끝)까지의 바이트를 읽어온다.
+FileSize = ftell( pFILE );
+
 
 2 인용게임 만들기
 소리?
