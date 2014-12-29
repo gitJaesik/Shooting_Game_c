@@ -6,11 +6,16 @@
 
 char Screen[HEIGHT][WIDTH];
 char HpScoreLifeItem[WIDTH];
-char Score;
+int Score;
 int Stage;
 
 #define TRUE					1
 #define MAX_STAGE			3
+
+typedef struct ScoreInfo{
+	char Name[20];
+	int FinalScore;
+} ScoreInfo;
 
 // 플레이어 비행기 관련 
 #define PLAYER_SIZE          5
@@ -121,6 +126,9 @@ void DrawHpScoreOfPlayer();
 
 // 파일 관리
 void SaveConqueror();
+void SortData( ScoreInfo *pData, int SavedDataCount);
+void Swap(ScoreInfo *p1, ScoreInfo *p2);
+void WriteDataToFile( ScoreInfo *pData, int SavedDataCount);
 void ShowConqueror();
 
 void main()
@@ -234,7 +242,7 @@ void CheckCrush()
 							Boss.EI.HP--;
 							if(Boss.EI.HP <= 0){
 								Boss.EI.LiveFlag = 0;
-								Score++;
+								Score += 1000;
 							}
 					}
 				}
@@ -782,10 +790,13 @@ void ItemAction()
 
 void SaveConqueror()
 {
+
 	int i;
-	char Name[20];
 	
+	char Name[20];
 	FILE *pFILE;
+	int SavedDataCount = 0;
+	ScoreInfo *Data;
 
 	for(i=0;i < HEIGHT;i++){
 		memset(Screen[i],' ', WIDTH);
@@ -797,17 +808,40 @@ void SaveConqueror()
 		printf(Screen[i]);
 	}
 
-	MoveCursor(30, 12);
-	printf("save your name becaue you conquer this game");
-	MoveCursor(30, 13);
-	printf("Name : ");
-	scanf("%s", Name);
 
-	pFILE = fopen(".\\conqueror.dat", "ab");
+	pFILE = fopen(".\\conqueror.dat", "rb");
 	if(pFILE != NULL){
-		fwrite( Name, sizeof(char), 20, pFILE);
+		fread( &SavedDataCount, sizeof(int), 1, pFILE);
+		Data = (ScoreInfo *)malloc( sizeof(ScoreInfo) * (SavedDataCount + 1) );
+		fread(Data, sizeof(ScoreInfo), SavedDataCount, pFILE);
 		fclose( pFILE );
+	}else {
+		printf("파일이 존재하지 않습니다. \n");
+		Data = (ScoreInfo *)malloc( sizeof(ScoreInfo) );
 	}
+	MoveCursor(30, 12);
+	printf(" 스코어 = %d\n", Score);
+
+	if( SavedDataCount < 7 ){
+		printf( "************ 축하합니다!! ************ \n ID를 입력하세요 !!!\n => ");
+		scanf( "%s", (Data + SavedDataCount)->Name);
+		(Data + SavedDataCount)->FinalScore = Score;
+		printf( "%s, %d\n", (Data + SavedDataCount)->Name, (Data + SavedDataCount)->FinalScore);
+		SavedDataCount += 1;
+	}else if ( (Data + 4)->FinalScore < Score ){
+		printf( "************ 축하합니다!! ************ \n ID를 입력하세요 !!!\n => ");
+		scanf( "%s", (Data + 4 )->Name);
+		(Data + 4)->FinalScore = Score;
+		printf( "%s, %d\n", (Data + 4 )->Name, (Data + 4)->FinalScore);
+	} else{
+		printf( "아쉽지만5 위안에들지못하셨네요 \n => ");
+	}
+
+	SortData( Data, SavedDataCount);
+
+    WriteDataToFile( Data, SavedDataCount);
+
+    free( Data );
 
 	for(i=0;i < HEIGHT;i++){
 		memset(Screen[i],' ', WIDTH);
@@ -824,13 +858,43 @@ void SaveConqueror()
 	Sleep(1000);
 }
 
+void SortData( ScoreInfo *pData, int SavedDataCount){
+       int i, j;
+
+       for(i = 0 ; i < SavedDataCount; i++){
+             for(j = i+1 ; j < SavedDataCount; j++){
+                   if( (pData+i)->FinalScore < (pData+j)->FinalScore ){
+                        Swap( pData+i, pData+j);
+                  }
+            }
+      }
+}
+
+void Swap(ScoreInfo *p1, ScoreInfo *p2){
+      ScoreInfo temp;
+      temp = *p1;
+      *p1 = *p2;
+      *p2 = temp;
+}
+
+void WriteDataToFile( ScoreInfo *pData, int SavedDataCount){
+	FILE *pWFILE;
+	pWFILE = fopen(".\\conqueror.dat", "wb");
+	// 여기서부터
+	if(pWFILE != NULL){
+		fwrite( &SavedDataCount, sizeof(int), 1, pWFILE);
+		fwrite( pData, sizeof(ScoreInfo), SavedDataCount, pWFILE);
+		fclose(pWFILE);
+	}else printf("알수 없는 이유로 쓸 수 없습니다. \n");
+}
+
 void ShowConqueror()
 {
 	int i, j;
-	char Name[20];
-	int ReceiveDataByte;
+	int Cnt = 0;
 	
 	FILE *pFILE;
+	ScoreInfo Buffer;
 
 	// Clear Screen
 	for(i=0;i < HEIGHT;i++){
@@ -849,17 +913,18 @@ void ShowConqueror()
 	// Read data
 	pFILE = fopen(".\\conqueror.dat", "rb");
 	if(pFILE != NULL){
+		fread( &Cnt, sizeof(int), 1, pFILE);
 		j = 12;
-		do{
-		ReceiveDataByte = fread( Name, sizeof(char), 20, pFILE);
-		MoveCursor(28, j);
-		printf("- %s",Name);
-		j++;
-		}while( ReceiveDataByte >= 10);
-		fclose( pFILE );
-	}
+		for(i = 0; i < Cnt; i++){
+			fread( &Buffer, sizeof(ScoreInfo), 1, pFILE);
+			MoveCursor(28, j+i);
+			printf("[%d]등 [%s]님 [%d]점 \n", i+1, Buffer.Name, Buffer.FinalScore);
+		}
 
-	Sleep( 4000 );
+		fclose( pFILE );
+	} else printf("\n저장되어있는 데이터가 없거나 파일에 문제가 있습니다.\n");
+
+	Sleep( 3000 );
 
 }
 /*
